@@ -17,7 +17,7 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 
 <p>
-  <a href="https://trendshift.io/repositories/57851?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-57851" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/57851/daily?language=Astro" alt="datawhalechina%2Fdeepagents-in-action | Trendshift" width="250" height="55"/></a>
+  <a href="https://trendshift.io/repositories/57851?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-57851" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/57851/monthly?language=Astro" alt="datawhalechina%2Fdeepagents-in-action | Trendshift" width="250" height="55"/></a>
   <a href="https://trendshift.io/developers/10200?utm_source=developer-badge&amp;utm_medium=badge&amp;utm_campaign=badge-developer-10200" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/developers/10200" alt="webup | Trendshift" width="250" height="55"/></a>
 </p>
 
