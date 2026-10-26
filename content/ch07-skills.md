@@ -590,7 +590,7 @@ result = agent.invoke(
 
 ![Skills 代码执行的两种模式](../public/imgs/25-arch-skills-code-execution.png)
 
-Skills 不仅能提供文本指令，还能包含**可执行代码**。Deep Agents 支持两种代码执行模式：沙箱脚本和解释器技能。
+Skills 不仅能提供文本指令，还能结合**代码执行**能力。Deep Agents 支持两种代码执行模式：沙箱脚本和代码解释器。
 
 ### 沙箱脚本（Sandbox Scripts）
 
@@ -634,9 +634,11 @@ Search arXiv for papers matching the user's query.
 
 ### 解释器与确定性代码执行（Interpreter Skills）
 
-除了通过沙箱执行脚本外，Deep Agents 还可以结合代码解释器环境运行确定性逻辑。Agent 能够直接把经过测试的辅助函数与数据处理逻辑交由解释器执行，而不必每次都由 LLM 重新生成。
+除了通过沙箱执行外部脚本外，Deep Agents 还可以结合代码解释器中间件在内存中运行 JavaScript 代码。
 
-> 运行前提与版本演进：解释器环境需要安装 QuickJS 中间件，例如 `pip install -U "deepagents[quickjs]"` 或 `uv add "deepagents[quickjs]"`。官方要求 `langchain-quickjs>=0.2.0`（随 `deepagents>=0.7.0` 起）且 Python `>=3.11`。在早期实验版本（`langchain-quickjs<0.2.0`）中，官方曾探索通过 `CodeInterpreterMiddleware(skills_backend=backend)` 配合 `await import("@/skills/<name>")` 直接在解释器中导入 Skill 脚本的用法。自 0.2.0 起，架构移除了 `skills_backend` 与模块导入机制，将 QuickJS 聚焦于轻量内存执行与程序化工具调用（PTC）。如果需要由解释器调度工具与辅助函数，推荐通过 `ptc=[...]` 注入白名单，或使用沙箱后端执行完整脚本。解释器、PTC 与状态生命周期详见[第 15 章：Interpreters](../ch15-interpreters/)。
+模型可以将循环、批量筛选和数据聚合等逻辑交给解释器 `eval` 执行。需要注意的是，`skills` 配置仅用于向 Agent 暴露 Skill 提示词与资源，不会自动向 QuickJS 解释器中导入辅助函数；`mode="call"` 下每次代码执行均使用独立的全新环境，不会保留上一次 `eval` 的变量或函数状态。若需要复用已有的业务逻辑或辅助函数，推荐通过 `ptc` 白名单将工具暴露给解释器（程序化工具调用 PTC），或使用沙箱环境运行完整脚本。
+
+> 运行前提与版本说明：本节示例按 `langchain-quickjs 0.3.9` 核对。使用解释器中间件需安装 QuickJS 依赖，例如 `pip install -U "deepagents[quickjs]"` 或 `uv add "deepagents[quickjs]"`（需 Python `>=3.11`）。在早期实验版本中，曾探索过通过 `CodeInterpreterMiddleware(skills_backend=backend)` 配合 `await import("@/skills/<name>")` 直接在解释器中导入 Skill 脚本的机制；该机制自 `langchain-quickjs 0.2.0` 起已正式移除（早于 Deep Agents 0.7），QuickJS 聚焦于纯内存的轻量安全执行与程序化工具调用（PTC）。解释器中间件、PTC 与状态生命周期详见[第 15 章：Interpreters](../ch15-interpreters/)。
 
 配置带有 QuickJS 解释器中间件的 Agent：
 
@@ -655,7 +657,7 @@ agent = create_deep_agent(
 )
 ```
 
-解释器模式的优势在于**确定性**——复杂的循环、批量过滤与聚合由代码保证结果精确，不必每次依赖 LLM 进行多轮推理，同时也大幅节省了 token。
+解释器模式的优势在于**确定性与效率**——模型将复杂的循环遍历、批量过滤与数据聚合直接交由代码解释器运行，结果确定且避免了频繁的多轮 LLM 交互，大幅节省了上下文 Token。
 
 ## Skills、Memory 与 Tools 对比
 
@@ -739,7 +741,7 @@ Agent 擅长执行清晰的步骤化指令。Skill 内容应当包含：
 3. **三种存储后端**：StateBackend（通过 files 参数注入）、StoreBackend（持久化存储）、FilesystemBackend（直接读磁盘）
 4. **子 Agent 继承规则**：General-purpose 子 Agent 自动继承主 Agent 的 Skills，自定义子 Agent 需显式配置，状态完全隔离
 5. **权限控制**：deny 模式完全禁止、interrupt 模式人工审批，适用于生产环境的安全部署
-6. **代码执行**：沙箱脚本在隔离容器中运行外部脚本，解释器技能让 Agent 直接 import 经过测试的代码模块
+6. **代码执行**：沙箱脚本在隔离容器中运行外部脚本；解释器中间件（如 QuickJS）则在内存中通过 eval 执行模型生成的循环与数据聚合，复用业务逻辑可结合 PTC 白名单或沙箱运行
 7. **Skills vs Memory vs Tools**：三者各司其职——Skills 是按需加载的领域知识，Memory 是始终生效的全局上下文，Tools 是可执行的原子操作
 
 下一章，我们将学习长期记忆——让 Agent 拥有跨对话、跨会话的持久化记忆。
