@@ -632,69 +632,13 @@ Search arXiv for papers matching the user's query.
 
 这种模式适合需要运行数据处理、API 调用、文件转换等任务的场景，同时保证了执行的安全隔离。
 
-### 解释器技能（Interpreter Skills）
+### 解释器与确定性代码执行（Interpreter Skills）
 
-解释器技能将 Skill 中的代码模块暴露给 Agent 的代码解释器环境。Agent 可以直接 `import` 经过测试的辅助函数，而不必每次都重新生成逻辑。
+除了通过沙箱执行脚本外，Deep Agents 还可以结合代码解释器环境运行确定性逻辑。Agent 能够直接把经过测试的辅助函数与数据处理逻辑交由解释器执行，而不必每次都由 LLM 重新生成。
 
-> 运行前提：Interpreter Skills 需要安装 QuickJS 中间件，例如 `pip install -U "deepagents[quickjs]"` 或 `uv add "deepagents[quickjs]"`。官方文档要求 `langchain-quickjs>=0.2.0` 且 Python `>=3.11`。解释器运行在 QuickJS 内存环境中，适合导入确定性的 JS/TS helper；如果需要执行 Shell、安装包或访问完整文件系统，应使用沙箱后端。解释器、PTC 与状态生命周期见[第 15 章：Interpreters](../ch15-interpreters/)。
+> 运行前提与版本演进：解释器环境需要安装 QuickJS 中间件，例如 `pip install -U "deepagents[quickjs]"` 或 `uv add "deepagents[quickjs]"`。官方要求 `langchain-quickjs>=0.2.0`（随 `deepagents>=0.7.0` 起）且 Python `>=3.11`。在早期实验版本（`langchain-quickjs<0.2.0`）中，官方曾探索通过 `CodeInterpreterMiddleware(skills_backend=backend)` 配合 `await import("@/skills/<name>")` 直接在解释器中导入 Skill 脚本的用法。自 0.2.0 起，架构移除了 `skills_backend` 与模块导入机制，将 QuickJS 聚焦于轻量内存执行与程序化工具调用（PTC）。如果需要由解释器调度工具与辅助函数，推荐通过 `ptc=[...]` 注入白名单，或使用沙箱后端执行完整脚本。解释器、PTC 与状态生命周期详见[第 15 章：Interpreters](../ch15-interpreters/)。
 
-要让一个 Skill 可被导入，需要三步配置：
-
-1. 在 frontmatter 的 `metadata.entrypoint` 中指定入口文件（JS/TS）
-2. 配置 `CodeInterpreterMiddleware` 使用相同的后端
-3. Agent 在代码中通过 `await import("@/skills/<name>")` 导入
-
-目录结构示例：
-
-```
-skills/
-└── order-helpers/
-    ├── SKILL.md
-    └── scripts/
-        └── index.ts
-```
-
-`SKILL.md`：
-
-````markdown
----
-name: order-helpers
-description: Helper functions for normalizing and grouping order records.
-metadata:
-  entrypoint: scripts/index.ts
----
-
-# order-helpers
-
-Use this skill when order records need deterministic cleanup or aggregation.
-
-Import these utilities into the REPL:
-
-```typescript
-const { groupByStatus } = await import("@/skills/order-helpers");
-groupByStatus(...);
-```
-````
-
-TypeScript 模块实现：
-
-```typescript
-// skills/order-helpers/scripts/index.ts
-interface Order {
-  id: string;
-  status: string;
-}
-
-export function groupByStatus(orders: Order[]) {
-  return orders.reduce((acc, order) => {
-    acc[order.status] = acc[order.status] ?? [];
-    acc[order.status].push(order);
-    return acc;
-  }, {});
-}
-```
-
-Agent 配置：
+配置带有 QuickJS 解释器中间件的 Agent：
 
 ```python
 from deepagents import create_deep_agent
@@ -707,11 +651,11 @@ agent = create_deep_agent(
     model="anthropic:claude-sonnet-4-6",
     backend=backend,
     skills=["/skills/"],
-    middleware=[CodeInterpreterMiddleware(skills_backend=backend)],
+    middleware=[CodeInterpreterMiddleware(mode="call")],
 )
 ```
 
-解释器技能的优势在于**确定性**——经过测试的函数不会因为 LLM 重新生成而出现偏差，同时也节省了 token（Agent 只需要写一行 import 而不是几十行实现代码）。
+解释器模式的优势在于**确定性**——复杂的循环、批量过滤与聚合由代码保证结果精确，不必每次依赖 LLM 进行多轮推理，同时也大幅节省了 token。
 
 ## Skills、Memory 与 Tools 对比
 
